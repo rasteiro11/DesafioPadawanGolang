@@ -1,64 +1,51 @@
 package main
 
 import (
-	"net/http"
-	"strconv"
-
+	"fmt"
 	"github.com/gin-gonic/gin"
+	"github.com/joho/godotenv"
+	"gorm.io/driver/mysql"
+	"gorm.io/gorm"
+	"os"
+	"server/controller"
+	"server/entity"
+	"server/repository"
+	"server/service"
 )
 
-type Exchange struct {
-	amount float64
-	from   string
-	to     string
-	rate   float64
-}
-
-func NewExchange(amount float64, from string, to string, rate float64) *Exchange {
-	return &Exchange{amount, from, to, rate}
-}
-
-type ExchangeError struct {
-	Type string
-}
-
-func (e *ExchangeError) Error() string {
-	return e.Type
-}
-
-func NewExchangeFromParams(c *gin.Context) (*Exchange, *ExchangeError) {
-	a, amount_err := strconv.ParseFloat(c.Param("amount"), 64)
-	if amount_err != nil {
-		return nil, &ExchangeError{Type: "PARSING AMOUNT ERROR"}
-	}
-	r, rate_err := strconv.ParseFloat(c.Param("rate"), 64)
-	if rate_err != nil {
-		return nil, &ExchangeError{Type: "PARSING RATE ERROR"}
-	}
-	return NewExchange(a, c.Param("from"), c.Param("to"), r), nil
-}
-
-func exchange(c *gin.Context) {
-	excg, err := NewExchangeFromParams(c)
-	if err != nil {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"error": err.Type,
-		})
-	} else {
-		c.JSON(http.StatusOK, gin.H{
-			"amout": excg.amount,
-			"from":  excg.from,
-			"to":    excg.to,
-			"rate":  excg.rate,
-		})
-
-	}
+func Migrate(db *gorm.DB) {
+	db.AutoMigrate(&entity.ExchangeResponse{})
 }
 
 func main() {
+	err := godotenv.Load(".env")
+	if err != nil {
+		fmt.Print("FUCK SOMETHING WENT WRONG WITH DOTFILES")
+		return
+	}
+
+	mysqlConnStr := fmt.Sprintf("%s:%s@tcp(127.0.0.1:3306)/%s?charset=utf8mb4&parseTime=True&loc=Local", os.Getenv("DB_USER"), os.Getenv("DB_PASSWORD"), os.Getenv("DB_NAME"))
+	//dsn := "admin:dora2012@tcp(127.0.0.1:3306)/golang_test?charset=utf8mb4&parseTime=True&loc=Local"
+	db, err := gorm.Open(mysql.Open(mysqlConnStr), &gorm.Config{})
+
+	if err != nil {
+		fmt.Print("FUCK SOMETHING WENT WRONG WITH DATABASE")
+		return
+	}
+
 	r := gin.Default()
 
-	r.GET("/exchange/:amount/:from/:to/:rate", exchange)
+	// REPOSITORIES
+	exchangeResponseRepo := repository.NewExchangeResponseRepositoryImpl(db)
+
+	// SERVICES
+	exchangeService := service.NewExchangeServiceImpl(exchangeResponseRepo)
+
+	//CONTROLLERS
+	exchangeController := controller.NewExchangeController(r, exchangeService)
+	exchangeController.MountRoutes()
+
+	Migrate(db)
 
 	r.Run()
 
