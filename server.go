@@ -20,15 +20,15 @@ func Migrate(db *gorm.DB) {
 func main() {
 	err := godotenv.Load(".env")
 	if err != nil {
-		fmt.Print("FUCK SOMETHING WENT WRONG WITH DOTFILES")
+		fmt.Print("SOMETHING WENT WRONG WITH DOTFILES")
 		return
 	}
 
-	mysqlConnStr := fmt.Sprintf("%s:%s@tcp(192.168.0.15:3306)/%s?charset=utf8mb4&parseTime=True&loc=Local", os.Getenv("DB_USER"), os.Getenv("DB_PASSWORD"), os.Getenv("DB_NAME"))
+	mysqlConnStr := fmt.Sprintf("%s:%s@tcp(%s)/%s?charset=utf8mb4&parseTime=True&loc=Local", os.Getenv("DB_USER"), os.Getenv("DB_PASSWORD"), os.Getenv("DB_IP"), os.Getenv("DB_NAME"))
 	db, err := gorm.Open(mysql.Open(mysqlConnStr), &gorm.Config{})
 
 	if err != nil {
-		fmt.Print("FUCK SOMETHING WENT WRONG WITH DATABASE")
+		fmt.Print("SOMETHING WENT WRONG WITH DATABASE")
 		return
 	}
 
